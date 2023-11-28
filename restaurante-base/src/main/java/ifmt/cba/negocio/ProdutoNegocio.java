@@ -77,6 +77,7 @@ public class ProdutoNegocio {
 		}
 	}
 
+	
 	public List<ProdutoDTO> pesquisaParteNome(String parteNome) throws NegocioException {
 		try {
 			return this.toDTOAll(produtoDAO.buscarPorParteNome(parteNome));

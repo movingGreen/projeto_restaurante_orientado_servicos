@@ -6,12 +6,9 @@ import java.util.List;
 import org.modelmapper.ModelMapper;
 
 import ifmt.cba.dto.CardapioDTO;
-import ifmt.cba.dto.ProdutoDTO;
 import ifmt.cba.entity.Cardapio;
-import ifmt.cba.entity.Produto;
 import ifmt.cba.persistencia.CardapioDAO;
 import ifmt.cba.persistencia.PersistenciaException;
-import ifmt.cba.persistencia.ProdutoDAO;
 
 public class CardapioNegocio {
     private ModelMapper modelMapper;

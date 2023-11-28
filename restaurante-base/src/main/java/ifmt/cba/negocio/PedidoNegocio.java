@@ -14,7 +14,7 @@ import ifmt.cba.persistencia.PersistenciaException;
 
 public class PedidoNegocio {
 
-    private ModelMapper modelMapper;
+	private ModelMapper modelMapper;
 	private PedidoDAO pedidoDAO;
 
 	public PedidoNegocio(PedidoDAO pedidoDAO) {
@@ -77,7 +77,7 @@ public class PedidoNegocio {
 		}
 	}
 
-    public List<PedidoDTO> pesquisaPorDataProducao(LocalDate dataInicial, LocalDate dataFinal) throws NegocioException {
+	public List<PedidoDTO> pesquisaPorDataProducao(LocalDate dataInicial, LocalDate dataFinal) throws NegocioException {
 		try {
 			return this.toDTOAll(pedidoDAO.buscarPorDataPedido(dataInicial, dataFinal));
 		} catch (PersistenciaException ex) {
@@ -97,7 +97,51 @@ public class PedidoNegocio {
 		try {
 			return this.toDTO(pedidoDAO.buscarPorCodigo(codigo));
 		} catch (PersistenciaException ex) {
-			throw new NegocioException("Erro ao pesquisar ordem de producao pelo codigo - " + ex.getMessage());
+			throw new NegocioException("Erro ao pesquisar pedido pelo codigo - " + ex.getMessage());
+		}
+	}
+
+	public void mudarPedidoParaProducao(PedidoDTO pedidoDTO) throws NegocioException {
+
+		if (pedidoDTO.getEstado().equals(EstadoPedidoDTO.REGISTRADO)) {
+			pedidoDTO.setEstado(EstadoPedidoDTO.PRODUCAO);
+			this.alterar(pedidoDTO);
+		} else {
+			throw new NegocioException(
+					"Pedido esta no estado: " + pedidoDTO.getEstado() + ", nao pode mudar para Producao");
+		}
+	}
+
+	public void mudarPedidoParaPronto(PedidoDTO pedidoDTO) throws NegocioException {
+
+		if (pedidoDTO.getEstado().equals(EstadoPedidoDTO.PRODUCAO)) {
+			pedidoDTO.setEstado(EstadoPedidoDTO.PRONTO);
+			this.alterar(pedidoDTO);
+		} else {
+			throw new NegocioException(
+					"Pedido esta no estado: " + pedidoDTO.getEstado() + ", nao pode mudar para Pronto");
+		}
+	}
+
+	public void mudarPedidoParaEntrega(PedidoDTO pedidoDTO) throws NegocioException {
+
+		if (pedidoDTO.getEstado().equals(EstadoPedidoDTO.PRONTO)) {
+			pedidoDTO.setEstado(EstadoPedidoDTO.ENTREGA);
+			this.alterar(pedidoDTO);
+		} else {
+			throw new NegocioException(
+					"Pedido esta no estado: " + pedidoDTO.getEstado() + ", nao pode mudar para Entrega");
+		}
+	}
+
+	public void mudarPedidoParaConcluido(PedidoDTO pedidoDTO) throws NegocioException {
+
+		if (pedidoDTO.getEstado().equals(EstadoPedidoDTO.ENTREGA)) {
+			pedidoDTO.setEstado(EstadoPedidoDTO.CONCLUIDO);
+			this.alterar(pedidoDTO);
+		} else {
+			throw new NegocioException(
+					"Pedido esta no estado: " + pedidoDTO.getEstado() + ", nao pode mudar para Concluido");
 		}
 	}
 

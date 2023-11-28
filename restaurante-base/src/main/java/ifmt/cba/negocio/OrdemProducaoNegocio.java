@@ -2,24 +2,35 @@ package ifmt.cba.negocio;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 
 import org.modelmapper.ModelMapper;
 
 import ifmt.cba.dto.EstadoOrdemProducaoDTO;
 import ifmt.cba.dto.OrdemProducaoDTO;
+import ifmt.cba.dto.ProdutoDTO;
+import ifmt.cba.entity.ItemOrdemProducao;
 import ifmt.cba.entity.OrdemProducao;
+import ifmt.cba.persistencia.FabricaEntityManager;
 import ifmt.cba.persistencia.OrdemProducaoDAO;
 import ifmt.cba.persistencia.PersistenciaException;
+import ifmt.cba.persistencia.ProdutoDAO;
 
 public class OrdemProducaoNegocio {
-    
-    private ModelMapper modelMapper;
-	private OrdemProducaoDAO ordemProducaoDAO;
 
-	public OrdemProducaoNegocio(OrdemProducaoDAO ordemProducaoDAO) {
-		this.ordemProducaoDAO = ordemProducaoDAO;
-		this.modelMapper = new ModelMapper();
+	private ModelMapper modelMapper;
+	private OrdemProducaoDAO ordemProducaoDAO;
+	private ProdutoNegocio produtoNegocio;
+
+	public OrdemProducaoNegocio(OrdemProducaoDAO ordemProducaoDAO) throws NegocioException {
+		try {
+			this.ordemProducaoDAO = ordemProducaoDAO;
+			this.produtoNegocio = new ProdutoNegocio(new ProdutoDAO(FabricaEntityManager.getEntityManagerProducao()));
+			this.modelMapper = new ModelMapper();
+		} catch (PersistenciaException e) {
+			throw new NegocioException("Erro ao iniciar OrdemNegocio");
+		}
 	}
 
 	public void inserir(OrdemProducaoDTO ordemProducaoDTO) throws NegocioException {
@@ -77,7 +88,8 @@ public class OrdemProducaoNegocio {
 		}
 	}
 
-    public List<OrdemProducaoDTO> pesquisaPorDataProducao(LocalDate dataInicial, LocalDate dataFinal) throws NegocioException {
+	public List<OrdemProducaoDTO> pesquisaPorDataProducao(LocalDate dataInicial, LocalDate dataFinal)
+			throws NegocioException {
 		try {
 			return this.toDTOAll(ordemProducaoDAO.buscarPorDataProducao(dataInicial, dataFinal));
 		} catch (PersistenciaException ex) {
@@ -108,6 +120,43 @@ public class OrdemProducaoNegocio {
 			listaDTO.add(this.toDTO(ordemProducao));
 		}
 		return listaDTO;
+	}
+
+	public void processarOrdemProducao(OrdemProducaoDTO ordemProducaoDTO) throws NegocioException {
+
+		OrdemProducao ordemProducao = this.toEntity(ordemProducaoDTO);
+
+		if (ordemProducao.getEstado() == EstadoOrdemProducaoDTO.PROCESSADA) {
+			throw new NegocioException("Ordem ja processada");
+		}
+
+		String mensagemErros = ordemProducao.validar();
+		if (!mensagemErros.isEmpty()) {
+			throw new NegocioException(mensagemErros);
+		}
+
+		ProdutoDTO produto;
+		boolean processouItens = true;
+		ordemProducaoDAO.beginTransaction();
+		Iterator<ItemOrdemProducao> itensOrdem = ordemProducao.getListaItens().iterator();
+		while (itensOrdem.hasNext() && processouItens) {
+			ItemOrdemProducao itemOrdem = (ItemOrdemProducao) itensOrdem.next();
+			produto = produtoNegocio.pesquisaCodigo(itemOrdem.getPreparoProduto().getProduto().getCodigo());
+			if (produto.getEstoque() >= itemOrdem.getQuantidadePorcao()) {
+				produto.setEstoque(produto.getEstoque() - itemOrdem.getQuantidadePorcao());
+				produtoNegocio.alterar(produto);
+			} else {
+				processouItens = false;
+			}
+		}
+		if (processouItens){
+			ordemProducaoDTO.setEstado(EstadoOrdemProducaoDTO.PROCESSADA);
+			this.alterar(ordemProducaoDTO);
+			ordemProducaoDAO.commitTransaction();
+		}else{
+			ordemProducaoDAO.rollbackTransaction();
+			throw new NegocioException("Existe produto sem estoque suficiente para o processamento");
+		}
 	}
 
 	public OrdemProducaoDTO toDTO(OrdemProducao ordemProducao) {
